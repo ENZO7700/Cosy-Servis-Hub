@@ -1,0 +1,50 @@
+name: Test and Analyze
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test and Analyze
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Isar's own runtime downloader fails in this runner's network; tests
+      # that call Isar.initializeIsarCore(download: true) fall back to a
+      # local ./libisar.so if present, so pre-fetch it here instead.
+      - name: Download Isar Binary (Linux)
+        run: |
+          curl -L https://github.com/isar/isar/releases/download/3.1.0%2B1/libisar_linux_x64.so -o libisar.so
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed .
+      
+      - name: Run static analysis
+        run: flutter analyze
+      
+      - name: Run unit tests
+        run: flutter test test/unit
+      
+      - name: Run widget tests
+        run: flutter test test/widget
+      
+      - name: Run repository tests
+        run: flutter test test/repository
+      
+      # Integration tests require additional setup (Isar, Firebase, etc.)
+      # They are run separately in integration workflow
+      
+      - name: Build web (release)
+        run: flutter build web --release

@@ -1,0 +1,57 @@
+# =============================================================================
+# SUPABASE LOCAL DEVELOPMENT - .gitignore
+# =============================================================================
+# This file prevents sensitive Supabase configuration and temporary files
+# from being committed to version control.
+# =============================================================================
+
+# Temporary files created by Supabase CLI
+.temp/
+
+# Local environment files (may contain database passwords)
+.env
+.env.*
+!.env.example
+
+# Local configuration overrides
+config.toml.local
+
+# Database dump files
+*.sql.dump
+*.backup
+*.tar.gz
+
+# Local storage for Supabase Studio
+storage/
+
+# Log files
+*.log
+
+# Local development database files
+*.db
+*.sqlite
+
+# Node modules for local functions development
+node_modules/
+
+# Build artifacts for Edge Functions
+.functions/**/node_modules/
+.functions/**/dist/
+.functions/**/.next/
+.functions/**/.svelte-kit/
+.functions/**/build/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS metadata
+.DS_Store
+
+# =============================================================================
+# NOTE: config.toml is intentionally tracked as it contains migration history
+# and non-sensitive configuration. However, it may reference secrets
+# which should be in environment variables or .env files.
+# =============================================================================

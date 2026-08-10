@@ -1,0 +1,188 @@
+# =============================================================================
+# CENTRALNY DASHBOARD - COMPREHENSIVE .gitignore
+# =============================================================================
+# This file prevents sensitive data, build artifacts, and generated files
+# from being committed to version control.
+# =============================================================================
+
+# =============================================================================
+# SECURITY: SECRETS AND CREDENTIALS
+# =============================================================================
+# NEVER commit these files - they may contain production keys
+
+# Environment and secrets files
+secrets.json
+secrets.*.json
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Service account keys and certificates
+service-account*.json
+*.p12
+*.pem
+*.key
+!*.example.key
+
+# Supabase service role keys
+supabase-service-key.json
+
+# =============================================================================
+# DATABASE AND LOCAL STORAGE
+# =============================================================================
+
+# Isar database files (local data storage)
+*.isar
+*.isar.lock
+!**/isar.wasm
+
+# SQLite and other database files
+*.db
+*.sqlite
+*.sqlite-journal
+
+# =============================================================================
+# FLUTTER TOOLING
+# =============================================================================
+
+# Flutter build and tool directories
+.dart_tool/
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Flutter plugin dependencies
+.flutter-plugins-dependencies
+.flutter-plugins
+
+# Flutter generated files
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Generated.xcconfig
+
+# =============================================================================
+# NATIVE PLATFORM FILES
+# =============================================================================
+
+# Android
+/android/local.properties
+/android/*.keystore
+/android/app/*-release.apk
+/android/app/*-debug.apk
+/android/app/build/
+/android/app/.cxx/
+
+# iOS
+**/ios/Flutter/ephemeral/
+**/ios/*.mobileprovision
+**/ios/*.p12
+**/ios/*.key
+**/ios/Pods/
+
+# macOS
+**/macos/Flutter/ephemeral/
+
+# Linux
+**/linux/flutter/ephemeral/
+
+# Windows
+**/windows/flutter/ephemeral/
+
+# =============================================================================
+# SUPABASE
+# =============================================================================
+# Supabase local development and temporary files
+supabase/.temp/
+supabase/.env
+supabase/.env.*
+!supabase/.env.example
+
+# =============================================================================
+# IDE AND EDITOR
+# =============================================================================
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Android Studio
+.atom/
+.build/
+.buildlog/
+
+# VS Code
+# Uncomment if you want to ignore VS Code settings
+#.vscode/
+
+# =============================================================================
+# SYSTEM AND TEMPORARY FILES
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Unix
+*.swp
+*.swo
+*~
+
+# Version control
+.svn/
+
+# Other
+.history
+.swiftpm/
+migrate_working_dir/
+
+# =============================================================================
+# LOGS AND CACHE
+# =============================================================================
+*.log
+*.cache
+*.tmp
+*~/.log
+
+# Dart/Flutter logs
+flutter_*.log
+.dart_tool/
+
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+# Keep these comments for documentation purposes
+# =============================================================================
+
+.firebase/
+
+# Local helper scripts
+start-dev-web.sh
+tool/clean_lints.py
+.vercel
+
+# =============================================================================
+# PLAYWRIGHT / NODE E2E
+# =============================================================================
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+dist-e2e/
+package-lock.json.backup
+
+# generated polish reports/screenshots
+e2e/artifacts/
