@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -90,6 +90,12 @@ function form(data: Record<string, string>) {
 
 describe("createBooking action", () => {
   beforeEach(() => {
+    // Keep booking-slot tests deterministic. Without a frozen clock,
+    // fixed fixture dates eventually become past dates and the success
+    // case starts failing even though production booking logic is correct.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T08:00:00.000Z"));
+
     getSessionProfile.mockReset();
     createBookingWithConflictCheck.mockReset();
     listActiveAvailability.mockReset();
@@ -97,6 +103,10 @@ describe("createBooking action", () => {
     sendBookingConfirmationEmail.mockReset();
     serviceFindFirst.mockReset();
     providerFindFirst.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns UNAUTHENTICATED without session", async () => {

@@ -8,12 +8,24 @@ const optionalText = (max: number) =>
     .optional()
     .or(z.literal(""));
 
+export const businessTypes = [
+  "BEAUTY",
+  "HEALTH_WELLNESS",
+  "HOME_SERVICES",
+  "AUTOMOTIVE",
+  "PROFESSIONAL_SERVICES",
+  "OTHER",
+] as const;
+
 export const providerProfileSchema = z.object({
   businessName: z
     .string()
     .trim()
     .min(2, "Zadajte názov firmy (min. 2 znaky)")
     .max(80, "Názov je príliš dlhý (max. 80 znakov)"),
+  businessType: z.enum(businessTypes, {
+    error: "Vyberte typ firmy",
+  }),
   bio: optionalText(1000),
   ico: z
     .string()
@@ -34,7 +46,9 @@ export const providerProfileSchema = z.object({
     .regex(/^\d{3}\s?\d{2}$/, "PSČ vo formáte 811 01")
     .optional()
     .or(z.literal("")),
-  categoryIds: z.array(z.string().min(1)).max(10, "Vyberte najviac 10 kategórií"),
+  categoryIds: z
+    .array(z.string().min(1))
+    .max(10, "Vyberte najviac 10 kategórií"),
 });
 
 export type ProviderProfileInput = z.infer<typeof providerProfileSchema>;

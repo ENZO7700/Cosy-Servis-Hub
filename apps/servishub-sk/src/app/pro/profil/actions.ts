@@ -30,6 +30,7 @@ export async function saveProviderProfile(
 
   const parsed = providerProfileSchema.safeParse({
     businessName: formData.get("businessName"),
+    businessType: formData.get("businessType"),
     bio: formData.get("bio"),
     ico: formData.get("ico"),
     dic: formData.get("dic"),

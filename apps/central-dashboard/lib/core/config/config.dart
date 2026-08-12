@@ -2,7 +2,10 @@ import 'package:flutter/widgets.dart';
 
 class AppConfig {
   static bool get isTest {
-    return const bool.fromEnvironment('INTEGRATION_TEST', defaultValue: false) ||
+    return const bool.fromEnvironment(
+          'INTEGRATION_TEST',
+          defaultValue: false,
+        ) ||
         WidgetsBinding.instance.runtimeType.toString().contains('Test');
   }
 
@@ -46,6 +49,15 @@ class AppConfig {
 
   static const String wordpressPublicSiteUrl = String.fromEnvironment(
     'VITE_WORDPRESS_PUBLIC_SITE_URL',
+    defaultValue: '',
+  );
+
+  static const String salonosApiBaseUrl = String.fromEnvironment(
+    'VITE_SALONOS_API_BASE_URL',
+    defaultValue: '',
+  );
+  static const String salonosProviderId = String.fromEnvironment(
+    'VITE_SALONOS_PROVIDER_ID',
     defaultValue: '',
   );
 

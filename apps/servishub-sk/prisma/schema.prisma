@@ -105,6 +105,15 @@ enum AiEngineSource {
   AI_RECEPTIONIST
 }
 
+enum BusinessType {
+  BEAUTY
+  HEALTH_WELLNESS
+  HOME_SERVICES
+  AUTOMOTIVE
+  PROFESSIONAL_SERVICES
+  OTHER
+}
+
 /// App profile 1:1 with Supabase auth.users (userId = auth.users.id)
 model Profile {
   id        String   @id @default(cuid())
@@ -138,6 +147,7 @@ model Provider {
   id                 String             @id @default(cuid())
   profileId          String             @unique @map("profile_id")
   businessName       String             @map("business_name")
+  businessType       BusinessType       @default(OTHER) @map("business_type")
   slug               String             @unique
   bio                String?
   ico                String?
@@ -491,7 +501,7 @@ model ClientProfileAi {
   averageDaysGap  Int       @default(28) @map("average_days_gap")
   lastVisitAt     DateTime? @map("last_visit_at")
   nextPredictedAt DateTime? @map("next_predicted_at")
-  preferredBarber String?   @map("preferred_barber")
+  preferredTeamMember String?   @map("preferred_team_member")
   isRiskOfLoss    Boolean   @default(false) @map("is_risk_of_loss")
 
   profile  Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)

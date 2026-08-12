@@ -15,19 +15,34 @@ export async function POST(request: Request) {
 
   try {
     const profile = await requireProviderProfile();
-    const body = (await request.json().catch(() => ({}))) as { providerId?: string };
-    const providerId = body.providerId ?? (await prisma.provider.findUnique({
-      where: { profileId: profile.id },
-      select: { id: true },
-    }))?.id;
+    const body = (await request.json().catch(() => ({}))) as {
+      providerId?: string;
+    };
+    const providerId =
+      body.providerId ??
+      (
+        await prisma.provider.findUnique({
+          where: { profileId: profile.id },
+          select: { id: true },
+        })
+      )?.id;
 
-    if (!providerId) return NextResponse.json({ error: "Salon nebol nájdený." }, { status: 404 });
+    if (!providerId) {
+      return NextResponse.json(
+        { error: "Prevádzka nebola nájdená." },
+        { status: 404 },
+      );
+    }
     if (profile.role !== "ADMIN") {
       const owned = await prisma.provider.findFirst({
         where: { id: providerId, profileId: profile.id },
         select: { id: true },
       });
-      if (!owned) return NextResponse.json({ error: "Prístup zamietnutý." }, { status: 403 });
+      if (!owned)
+        return NextResponse.json(
+          { error: "Prístup zamietnutý." },
+          { status: 403 },
+        );
     }
 
     const staleSince = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000);
@@ -40,7 +55,9 @@ export async function POST(request: Request) {
         ],
       },
       include: {
-        profile: { select: { id: true, fullName: true, phone: true, email: true } },
+        profile: {
+          select: { id: true, fullName: true, phone: true, email: true },
+        },
       },
       orderBy: [{ isRiskOfLoss: "desc" }, { lastVisitAt: "asc" }],
       take: 100,
@@ -57,16 +74,19 @@ export async function POST(request: Request) {
         name: client.profile.fullName ?? "Klient",
         phone: client.profile.phone,
         email: client.profile.email,
-        preferredBarber: client.preferredBarber,
+        preferredTeamMember: client.preferredTeamMember,
         isRiskOfLoss: client.isRiskOfLoss,
         lastVisitAt: client.lastVisitAt?.toISOString() ?? null,
-        draft: `Ahoj ${client.profile.fullName ?? ""}, radi by sme ťa opäť privítali v salóne. Máš chuť rezervovať si svoj ďalší termín?`,
+        draft: `Ahoj ${client.profile.fullName ?? ""}, radi by sme ti ponúkli ďalší termín. Máš záujem o rezerváciu služby?`,
       })),
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) throw error;
+    if (error instanceof Error && error.message.includes("NEXT_REDIRECT"))
+      throw error;
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Return engine zlyhal." },
+      {
+        error: error instanceof Error ? error.message : "Return engine zlyhal.",
+      },
       { status: 500 },
     );
   }

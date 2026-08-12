@@ -39,7 +39,7 @@ async function ensureGoodHtml(opts: {
   title?: string;
   sourceCode?: string | Record<string, string> | null;
 }): Promise<string> {
-  let html = opts.html?.trim() || "";
+  const html = opts.html?.trim() || "";
   if (!isBrokenPreviewHtml(html)) return html;
 
   let source: string | null = null;

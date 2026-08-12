@@ -1,25 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/ui/responsive.dart';
 import '../../../core/ui/theme.dart';
+import '../models/salonos_stats.dart';
+import '../services/salonos_stats_service.dart';
 
-/// SALONOS AI cockpit for the PAPI HAIR DESIGN pilot.
-///
-/// The first screen is intentionally useful without a live API connection:
-/// owners can review the revenue attribution and preview the next actions.
-/// The action callbacks are ready to be replaced with the API client when the
-/// shared provider environment is connected.
+/// SALONOS AI cockpit backed by the authenticated ServisHub stats API.
 class SalonosDashboardPage extends StatefulWidget {
-  const SalonosDashboardPage({super.key});
+  final SalonosStatsGateway? service;
+
+  const SalonosDashboardPage({super.key, this.service});
 
   @override
   State<SalonosDashboardPage> createState() => _SalonosDashboardPageState();
 }
 
 class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
-  bool _outreachStarted = false;
-  bool _slotMessageSent = false;
+  late final SalonosStatsGateway _service;
+  final Set<String> _reviewedActions = <String>{};
+  late Future<SalonosStats> _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = widget.service ?? SalonosStatsService();
+    _stats = _service.fetchStats();
+  }
+
+  @override
+  void dispose() {
+    _service.dispose();
+    super.dispose();
+  }
+
+  void _retry() {
+    setState(() => _stats = _service.fetchStats());
+  }
 
   void _showAction(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -36,51 +54,69 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeading(context),
-              const SizedBox(height: 20),
-              _buildRevenueCard(context),
-              const SizedBox(height: 24),
-              const Text(
-                'Dnes AI odporúča 3 akcie',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'SALONOS sleduje príležitosti, ktoré môžu priniesť ďalšie rezervácie.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-              ),
-              const SizedBox(height: 14),
-              Responsive(
-                mobile: Column(
-                  children: _actionCards(context),
-                ),
-                desktop: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _actionCards(context)
-                      .map((card) => Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 12),
-                              child: card,
-                            ),
-                          ))
-                      .toList(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _buildEngineStatus(),
-            ],
-          ),
+        child: FutureBuilder<SalonosStats>(
+          future: _stats,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingState();
+            }
+            if (snapshot.hasError) {
+              return _buildErrorState(snapshot.error);
+            }
+
+            final stats = snapshot.data!;
+            if (stats.isEmpty) return _buildEmptyState(context, stats);
+            return _buildSuccessState(context, stats);
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHeading(BuildContext context) {
+  Widget _buildSuccessState(BuildContext context, SalonosStats stats) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeading(context, stats),
+          const SizedBox(height: 20),
+          _buildRevenueCard(context, stats),
+          const SizedBox(height: 24),
+          Text(
+            'Dnes AI odporúča ${stats.dailyActions.length} akcie',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'SALONOS sleduje príležitosti pre nové zákazky, termíny a opakované služby.',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 14),
+          Responsive(
+            mobile: Column(children: _actionCards(stats.dailyActions)),
+            desktop: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _actionCards(stats.dailyActions)
+                  .map(
+                    (card) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: card,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildEngineStatus(stats),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeading(BuildContext context, SalonosStats stats) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -91,22 +127,25 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
               Text(
                 'SALONOS AI',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppTheme.success,
-                      letterSpacing: 1.8,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: AppTheme.success,
+                  letterSpacing: 1.8,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
                 'Revenue cockpit',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'PAPI HAIR DESIGN · Košice',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              Text(
+                stats.businessName,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -138,7 +177,12 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
     );
   }
 
-  Widget _buildRevenueCard(BuildContext context) {
+  Widget _buildRevenueCard(BuildContext context, SalonosStats stats) {
+    final currency = NumberFormat.currency(
+      locale: 'sk_SK',
+      symbol: stats.currency,
+      decimalDigits: 2,
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -181,12 +225,12 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '+ €2 740 EUR',
+            currency.format(stats.totalAiRevenue),
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: Colors.white,
-                  fontSize: 40,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: Colors.white,
+              fontSize: 40,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 5),
           const Text(
@@ -198,9 +242,18 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _revenueSource('€1 420', 'Reaktivovaní klienti'),
-              _revenueSource('€820', 'Zaplnené sloty'),
-              _revenueSource('€500', 'Zálohy'),
+              _revenueSource(
+                currency.format(stats.breakdown.returnEngine),
+                'Návrat klientov',
+              ),
+              _revenueSource(
+                currency.format(stats.breakdown.slotFiller),
+                'Využitá kapacita',
+              ),
+              _revenueSource(
+                currency.format(stats.breakdown.noShowGuards),
+                'Ochrana pred výpadkom',
+              ),
             ],
           ),
         ],
@@ -236,38 +289,25 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
     );
   }
 
-  List<Widget> _actionCards(BuildContext context) {
-    return [
-      _buildActionCard(
-        icon: LucideIcons.bot,
-        title: 'Osloviť 12 klientov, ktorí neboli >28 dní',
-        detail: 'Return engine pripravil personalizovaný outreach batch.',
-        buttonLabel: _outreachStarted ? 'Outreach pripravený' : 'Spustiť AI Outreach',
-        isComplete: _outreachStarted,
-        onPressed: () {
-          setState(() => _outreachStarted = true);
-          _showAction('Outreach batch je pripravený na odoslanie.');
+  List<Widget> _actionCards(List<SalonosDailyAction> actions) {
+    return actions.map((action) {
+      final reviewed = _reviewedActions.contains(action.id);
+      return _buildActionCard(
+        icon: switch (action.id) {
+          'return-engine' => LucideIcons.bot,
+          'slot-filler' => LucideIcons.calendarClock,
+          _ => LucideIcons.users,
         },
-      ),
-      _buildActionCard(
-        icon: LucideIcons.calendarClock,
-        title: 'Zaplniť dnešný slot o 15:00 u Papiho',
-        detail: 'Slot filler našiel vhodný segment klientov.',
-        buttonLabel: _slotMessageSent ? 'SMS pripravená' : 'Odoslať SMS',
-        isComplete: _slotMessageSent,
+        title: '${action.title} (${action.count})',
+        detail: action.detail,
+        buttonLabel: reviewed ? 'Skontrolované' : 'Označiť ako skontrolované',
+        isComplete: reviewed,
         onPressed: () {
-          setState(() => _slotMessageSent = true);
-          _showAction('SMS návrh bol vytvorený pre voľný slot.');
+          setState(() => _reviewedActions.add(action.id));
+          _showAction('Odporúčanie bolo označené ako skontrolované.');
         },
-      ),
-      _buildActionCard(
-        icon: LucideIcons.users,
-        title: '4 VIP klienti v riziku odchodu',
-        detail: 'Klienti prekročili svoj obvyklý interval návštevy.',
-        buttonLabel: 'Zobraziť detail',
-        onPressed: () => _showAction('Detail VIP segmentu bude otvorený v CRM.'),
-      ),
-    ];
+      );
+    }).toList();
   }
 
   Widget _buildActionCard({
@@ -335,21 +375,111 @@ class _SalonosDashboardPageState extends State<SalonosDashboardPage> {
     );
   }
 
-  Widget _buildEngineStatus() {
+  Widget _buildEngineStatus(SalonosStats stats) {
+    final start = stats.periodStart.toLocal();
+    final period = '${start.day}. ${start.month}. ${start.year}';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.glassDecoration(borderRadius: 14),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(LucideIcons.activity, size: 18, color: AppTheme.success),
-          SizedBox(width: 10),
+          const Icon(LucideIcons.activity, size: 18, color: AppTheme.success),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Posledná synchronizácia: dnes o 09:42 · Dáta sú pripravené pre PAPI HAIR DESIGN.',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+              'Dáta za obdobie od $period · ${stats.businessName}',
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12,
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: AppTheme.success),
+          SizedBox(height: 14),
+          Text('Načítavam reálne SALONOS dáta…'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context, SalonosStats stats) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeading(context, stats),
+          const SizedBox(height: 24),
+          _buildStateCard(
+            icon: LucideIcons.inbox,
+            title: 'Zatiaľ bez SALONOS dát',
+            message:
+                'Pre aktuálny mesiac nie sú evidované AI výnosy ani odporúčané akcie.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(Object? error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: _buildStateCard(
+          icon: LucideIcons.triangleAlert,
+          title: 'SALONOS dáta sa nepodarilo načítať',
+          message: error is SalonosStatsException
+              ? error.message
+              : 'Skontroluj pripojenie a skús to znova.',
+          action: OutlinedButton.icon(
+            onPressed: _retry,
+            icon: const Icon(LucideIcons.refreshCw, size: 16),
+            label: const Text('Skúsiť znova'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStateCard({
+    required IconData icon,
+    required String title,
+    required String message,
+    Widget? action,
+  }) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 620),
+      padding: const EdgeInsets.all(24),
+      decoration: AppTheme.glassDecoration(borderRadius: 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 30, color: AppTheme.textSecondary),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.textSecondary, height: 1.4),
+          ),
+          if (action != null) ...[const SizedBox(height: 18), action],
         ],
       ),
     );

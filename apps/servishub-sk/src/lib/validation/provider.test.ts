@@ -3,6 +3,7 @@ import { providerProfileSchema } from "./provider";
 
 const valid = {
   businessName: "Upratovanie BA",
+  businessType: "HOME_SERVICES",
   bio: "",
   ico: "12345678",
   dic: "1234567890",
@@ -32,6 +33,13 @@ describe("providerProfileSchema", () => {
   it("requires businessName min 2 chars", () => {
     expect(
       providerProfileSchema.safeParse({ ...valid, businessName: "A" }).success,
+    ).toBe(false);
+  });
+
+  it("requires a supported business type", () => {
+    expect(
+      providerProfileSchema.safeParse({ ...valid, businessType: "RESTAURANT" })
+        .success,
     ).toBe(false);
   });
 

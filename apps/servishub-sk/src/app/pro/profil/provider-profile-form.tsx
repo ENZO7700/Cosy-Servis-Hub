@@ -7,12 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { businessTypes } from "@/lib/validation/provider";
 
 const initialState: ProviderFormState = { status: "idle" };
 
+const businessTypeLabels: Record<(typeof businessTypes)[number], string> = {
+  BEAUTY: "Beauty",
+  HEALTH_WELLNESS: "Zdravie a wellness",
+  HOME_SERVICES: "Služby pre domácnosť",
+  AUTOMOTIVE: "Automotive",
+  PROFESSIONAL_SERVICES: "Profesionálne služby",
+  OTHER: "Iný typ služieb",
+};
+
 export type ProviderProfileDefaults = {
   businessName: string;
+  businessType: (typeof businessTypes)[number];
   bio: string;
   ico: string;
   dic: string;
@@ -65,6 +77,24 @@ export function ProviderProfileForm({
           aria-invalid={Boolean(state.fieldErrors?.businessName)}
         />
         {fieldError("businessName")}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="businessType">Typ firmy *</Label>
+        <Select
+          id="businessType"
+          name="businessType"
+          required
+          defaultValue={defaults.businessType}
+          aria-invalid={Boolean(state.fieldErrors?.businessType)}
+        >
+          {businessTypes.map((businessType) => (
+            <option key={businessType} value={businessType}>
+              {businessTypeLabels[businessType]}
+            </option>
+          ))}
+        </Select>
+        {fieldError("businessType")}
       </div>
 
       <div className="space-y-2">

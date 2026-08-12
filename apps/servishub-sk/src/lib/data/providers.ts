@@ -73,6 +73,7 @@ export async function upsertProviderProfile(
 ): Promise<Provider> {
   const scalarData = {
     businessName: input.businessName,
+    businessType: input.businessType,
     bio: input.bio || null,
     ico: input.ico || null,
     dic: input.dic || null,

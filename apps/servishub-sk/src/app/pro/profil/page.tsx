@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 
 const emptyDefaults: ProviderProfileDefaults = {
   businessName: "",
+  businessType: "OTHER",
   bio: "",
   ico: "",
   dic: "",
@@ -43,6 +44,7 @@ export default async function ProProfilePage() {
   const defaults: ProviderProfileDefaults = provider
     ? {
         businessName: provider.businessName,
+        businessType: provider.businessType,
         bio: provider.bio ?? "",
         ico: provider.ico ?? "",
         dic: provider.dic ?? "",
@@ -55,7 +57,9 @@ export default async function ProProfilePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Profil profesionála</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Profil profesionála
+        </h1>
         <p className="text-muted-foreground">
           Základné údaje, ktoré uvidia zákazníci vo vyhľadávaní a na verejnom
           profile.
@@ -65,7 +69,9 @@ export default async function ProProfilePage() {
       {!dbReady ? (
         <Card className="border-secondary/50">
           <CardHeader>
-            <CardTitle className="text-base">Databáza nie je nakonfigurovaná</CardTitle>
+            <CardTitle className="text-base">
+              Databáza nie je nakonfigurovaná
+            </CardTitle>
             <CardDescription>
               Formulár je pripravený, ale uloženie bude fungovať až po napojení
               Supabase/Postgres (DATABASE_URL) — pozri docs/T0-INFRA.md.
