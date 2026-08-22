@@ -1,0 +1,514 @@
+// ServisHub SK — core marketplace schema
+// Prisma Client output: src/generated/prisma
+// RLS policies live in supabase/migrations (enforced for Supabase client; Prisma uses service role / direct connection)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderTier {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+enum PaymentStatus {
+  REQUIRES_PAYMENT_METHOD
+  REQUIRES_CONFIRMATION
+  REQUIRES_ACTION
+  PROCESSING
+  REQUIRES_CAPTURE
+  SUCCEEDED
+  CANCELED
+  FAILED
+}
+
+enum CaptureMethod {
+  AUTOMATIC
+  MANUAL
+}
+
+enum PayoutStatus {
+  PENDING
+  IN_TRANSIT
+  PAID
+  FAILED
+  CANCELED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_REFUND
+  RESOLVED_PARTIAL
+  RESOLVED_RELEASE
+  CLOSED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum AiEngineSource {
+  SLOT_FILLER
+  RETURN_ENGINE
+  AI_RECEPTIONIST
+}
+
+enum BusinessType {
+  BEAUTY
+  HEALTH_WELLNESS
+  HOME_SERVICES
+  AUTOMOTIVE
+  PROFESSIONAL_SERVICES
+  OTHER
+}
+
+/// App profile 1:1 with Supabase auth.users (userId = auth.users.id)
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id") // auth.users.id (UUID)
+  email     String   @unique
+  fullName  String?  @map("full_name")
+  phone     String?
+  role      UserRole @default(CUSTOMER)
+  avatarUrl String?  @map("avatar_url")
+  locale    String   @default("sk")
+  /// Early-bird / referral promo captured at signup (optional)
+  promoCode String?  @map("promo_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  provider            Provider?
+  bookings            Booking[]      @relation("CustomerBookings")
+  reviews             Review[]       @relation("CustomerReviews")
+  leads               Lead[]         @relation("CustomerLeads")
+  messagesSent        Message[]      @relation("MessagesSent")
+  notifications       Notification[]
+  disputesOpened      Dispute[]      @relation("DisputesOpened")
+  leadsUnlocked       Lead[]         @relation("LeadsUnlocked")
+  clientProfileAi     ClientProfileAi?
+
+  @@index([role])
+  @@map("profiles")
+}
+
+model Provider {
+  id                 String             @id @default(cuid())
+  profileId          String             @unique @map("profile_id")
+  businessName       String             @map("business_name")
+  businessType       BusinessType       @default(OTHER) @map("business_type")
+  slug               String             @unique
+  bio                String?
+  ico                String?
+  dic                String?
+  city               String?
+  postalCode         String?            @map("postal_code")
+  /// WGS84 — for radius search (PostGIS later)
+  lat                Float?
+  lng                Float?
+  /// External KYC session id (Veriff/Onfido) — do not store ID scans
+  kycExternalId      String?            @map("kyc_external_id")
+  insuranceDocRef    String?            @map("insurance_doc_ref")
+  stripeAccountId    String?            @map("stripe_account_id")
+  tier               ProviderTier       @default(FREE)
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  insuranceVerified  Boolean            @default(false) @map("insurance_verified")
+  ratingAvg          Float              @default(0) @map("rating_avg")
+  ratingCount        Int                @default(0) @map("rating_count")
+  isActive           Boolean            @default(true) @map("is_active")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  profile       Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  categories    Category[]
+  services      Service[]
+  serviceAreas  ServiceArea[]
+  availability  Availability[]
+  bookings      Booking[]
+  reviews       Review[]
+  subscription  Subscription?
+  leads         Lead[]
+  payouts       Payout[]
+  aiRevenueLogs AiRevenueLog[]
+  aiClientProfiles ClientProfileAi[]
+
+  @@index([city])
+  @@index([postalCode])
+  @@index([tier])
+  @@index([verificationStatus])
+  @@index([isActive, ratingAvg])
+  @@index([lat, lng])
+  @@map("providers")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  services  Service[]
+  providers Provider[]
+
+  @@map("categories")
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  providerId  String   @map("provider_id")
+  categoryId  String   @map("category_id")
+  title       String
+  description String?
+  priceFrom   Decimal? @map("price_from") @db.Decimal(10, 2)
+  priceTo     Decimal? @map("price_to") @db.Decimal(10, 2)
+  currency    String   @default("EUR")
+  durationMin Int?     @map("duration_min")
+  /// Optional extras (JSON array of { id, label, price })
+  extras      Json?
+  featuredRank Int     @default(0) @map("featured_rank")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  provider Provider  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category Category  @relation(fields: [categoryId], references: [id])
+  bookings Booking[]
+
+  @@index([providerId])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([categoryId, isActive, priceFrom])
+  @@index([featuredRank])
+  @@map("services")
+}
+
+model ServiceArea {
+  id         String   @id @default(cuid())
+  providerId String   @map("provider_id")
+  city       String
+  postalCode String?  @map("postal_code")
+  radiusKm   Int?     @map("radius_km")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([city])
+  @@index([postalCode])
+  @@index([providerId])
+  @@map("service_areas")
+}
+
+/// Weekly recurring availability window (0 = Sunday … 6 = Saturday)
+model Availability {
+  id         String   @id @default(cuid())
+  providerId String   @map("provider_id")
+  dayOfWeek  Int      @map("day_of_week")
+  startTime  String   @map("start_time") // HH:mm
+  endTime    String   @map("end_time") // HH:mm
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, dayOfWeek])
+  @@map("availability")
+}
+
+model Booking {
+  id                     String        @id @default(cuid())
+  customerId             String        @map("customer_id")
+  providerId             String        @map("provider_id")
+  serviceId              String?       @map("service_id")
+  status                 BookingStatus @default(PENDING)
+  scheduledAt            DateTime      @map("scheduled_at")
+  durationMin            Int?          @map("duration_min")
+  addressLine            String?       @map("address_line")
+  city                   String?
+  postalCode             String?       @map("postal_code")
+  notes                  String?
+  priceAmount            Decimal?      @map("price_amount") @db.Decimal(10, 2)
+  depositAmount          Decimal?      @map("deposit_amount") @db.Decimal(10, 2)
+  currency               String        @default("EUR")
+  stripePaymentIntentId  String?       @unique @map("stripe_payment_intent_id")
+  capturedAt             DateTime?     @map("captured_at")
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+
+  customer Profile   @relation("CustomerBookings", fields: [customerId], references: [id])
+  provider Provider  @relation(fields: [providerId], references: [id])
+  service  Service?  @relation(fields: [serviceId], references: [id])
+  review   Review?
+  payment  Payment?
+  dispute  Dispute?
+  messages Message[]
+
+  @@index([customerId])
+  @@index([providerId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([providerId, scheduledAt])
+  @@index([city])
+  @@map("bookings")
+}
+
+model Payment {
+  id                   String        @id @default(cuid())
+  bookingId            String        @unique @map("booking_id")
+  intentId             String        @unique @map("intent_id")
+  captureMethod        CaptureMethod @default(AUTOMATIC) @map("capture_method")
+  amount               Decimal       @db.Decimal(10, 2)
+  applicationFee       Decimal?      @map("application_fee") @db.Decimal(10, 2)
+  currency             String        @default("EUR")
+  status               PaymentStatus @default(REQUIRES_PAYMENT_METHOD)
+  stripeChargeId       String?       @map("stripe_charge_id")
+  webhookPayload       Json?         @map("webhook_payload")
+  capturedAt           DateTime?     @map("captured_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("payments")
+}
+
+model Payout {
+  id               String       @id @default(cuid())
+  providerId       String       @map("provider_id")
+  amount           Decimal      @db.Decimal(10, 2)
+  currency         String       @default("EUR")
+  status           PayoutStatus @default(PENDING)
+  stripeTransferId String?      @unique @map("stripe_transfer_id")
+  cadence          String? // weekly | biweekly | manual
+  periodStart      DateTime?    @map("period_start")
+  periodEnd        DateTime?    @map("period_end")
+  paidAt           DateTime?    @map("paid_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+  @@map("payouts")
+}
+
+model Review {
+  id                String   @id @default(cuid())
+  bookingId         String   @unique @map("booking_id")
+  customerId        String   @map("customer_id")
+  providerId        String   @map("provider_id")
+  rating            Int
+  comment           String?
+  moderationStatus  String   @default("published") @map("moderation_status")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer Profile  @relation("CustomerReviews", fields: [customerId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+model Dispute {
+  id          String        @id @default(cuid())
+  bookingId   String        @unique @map("booking_id")
+  openedById  String        @map("opened_by_id")
+  status      DisputeStatus @default(OPEN)
+  reason      String?
+  evidence    Json?
+  resolution  String?
+  resolvedAt  DateTime?     @map("resolved_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  openedBy Profile @relation("DisputesOpened", fields: [openedById], references: [id])
+
+  @@index([status])
+  @@index([openedById])
+  @@map("disputes")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  providerId           String             @unique @map("provider_id")
+  tier                 ProviderTier       @default(FREE)
+  status               SubscriptionStatus @default(TRIALING)
+  stripeCustomerId     String?            @map("stripe_customer_id")
+  stripeSubscriptionId String?            @map("stripe_subscription_id")
+  stripePriceId        String?            @map("stripe_price_id")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  customerId   String?    @map("customer_id")
+  providerId   String?    @map("provider_id")
+  categoryId   String?    @map("category_id")
+  status       LeadStatus @default(NEW)
+  source       String?
+  city         String?
+  message      String?
+  contactName  String?    @map("contact_name")
+  contactEmail String?    @map("contact_email")
+  contactPhone String?    @map("contact_phone")
+  creditCost   Int        @default(0) @map("credit_cost")
+  unlockedById String?    @map("unlocked_by_id")
+  unlockedAt   DateTime?  @map("unlocked_at")
+  expiresAt    DateTime?  @map("expires_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  customer   Profile?  @relation("CustomerLeads", fields: [customerId], references: [id])
+  provider   Provider? @relation(fields: [providerId], references: [id])
+  unlockedBy Profile?  @relation("LeadsUnlocked", fields: [unlockedById], references: [id])
+
+  @@index([status])
+  @@index([city])
+  @@index([providerId])
+  @@index([expiresAt])
+  @@map("leads")
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  threadId   String    @map("thread_id")
+  bookingId  String?   @map("booking_id")
+  senderId   String    @map("sender_id")
+  body       String
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  sender  Profile  @relation("MessagesSent", fields: [senderId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
+  @@index([bookingId])
+  @@map("messages")
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String              @map("user_id") // profiles.id
+  channel   NotificationChannel
+  template  String
+  payload   Json?
+  status    NotificationStatus  @default(PENDING)
+  sentAt    DateTime?           @map("sent_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([channel])
+  @@map("notifications")
+}
+
+/// Revenue attribution produced by one of the SALONOS AI engines.
+model AiRevenueLog {
+  id          String         @id @default(cuid())
+  providerId  String         @map("provider_id")
+  bookingId   String?        @map("booking_id")
+  source      AiEngineSource
+  amount      Decimal        @db.Decimal(10, 2)
+  description String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([providerId, createdAt])
+  @@index([source])
+  @@map("ai_revenue_logs")
+}
+
+/// Per-client signals used by the SALONOS return engine.
+model ClientProfileAi {
+  id              String    @id @default(cuid())
+  profileId       String    @unique @map("profile_id")
+  providerId      String?   @map("provider_id")
+  averageDaysGap  Int       @default(28) @map("average_days_gap")
+  lastVisitAt     DateTime? @map("last_visit_at")
+  nextPredictedAt DateTime? @map("next_predicted_at")
+  preferredTeamMember String?   @map("preferred_team_member")
+  isRiskOfLoss    Boolean   @default(false) @map("is_risk_of_loss")
+
+  profile  Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  provider Provider? @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([lastVisitAt])
+  @@index([isRiskOfLoss])
+  @@map("client_profile_ai")
+}

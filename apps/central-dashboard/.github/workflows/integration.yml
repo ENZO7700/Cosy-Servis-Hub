@@ -1,0 +1,30 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:  # Run manually
+  schedule:
+    - cron: '0 2 * * 1'  # Every Monday at 2 AM
+
+jobs:
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Download Isar Binary (Linux)
+        run: |
+          curl -L https://github.com/isar/isar/releases/download/3.1.0%2B1/libisar_linux_x64.so -o libisar.so
+
+      - name: Run integration tests
+        run: flutter test test/integration
+        # Note: These tests require Firebase emulation and Isar setup
+        # They may fail in CI without proper configuration

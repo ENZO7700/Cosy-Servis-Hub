@@ -1,0 +1,10 @@
+{
+  "name": "@salonos/base44-integration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "deno check --no-config --no-lock --node-modules-dir=none base44/functions/salonosDailyStats/entry.ts base44/functions/salonosDailyStats/reader.ts tests/entry_test.ts",
+    "test": "deno test --no-config --no-lock --node-modules-dir=none tests/entry_test.ts"
+  }
+}

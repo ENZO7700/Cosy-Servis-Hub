@@ -1,0 +1,4 @@
+project_id = "kpsnwpuydqqojwmrnkdy"
+
+[functions.lead-assistant]
+verify_jwt = false
